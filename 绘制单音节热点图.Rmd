@@ -1,0 +1,25 @@
+---
+title: "绘制单音节热点图"
+author: "夏骁凯"
+date: "2017/1/5"
+output: html_document
+---
+代码如下：
+```{r}
+library(tidyverse)
+ch_ihiy_path <- file.choose()
+ch_ihiy <- read.csv(file = ch_ihiy_path)
+ch_ihiy <- select(ch_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
+names(ch_ihiy)[1] <- "answer"
+names(ch_ihiy)[2] <- "rate"
+ch_ihiy <- unite(ch_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
+ch_ihiy <- na.omit(ch_ihiy)
+ch_ihiy$sound <- str_extract(ch_ihiy$sound, pattern = "F1_..-F2_..")
+ch_ihiy <- separate(ch_ihiy, col = sound, into = c("X","Y"), sep = "-")
+ch_ihiy$X <- as.numeric(str_replace(ch_ihiy$X, pattern = "F1_", replacement = ""))
+ch_ihiy$Y <- as.numeric(str_replace(ch_ihiy$Y, pattern = "F2_", replacement = ""))
+
+ch_ihiy_i <- filter(ch_ihiy, answer == "i")
+ch_ihiy_i <- reshape2::dcast(ch_ihiy_i[c(1,3,4)], X + Y ~ answer)
+ggplot(ch_ihiy_i, aes(x = X, y = Y, fill = i)) + geom_tile() + scale_fill_gradient2() + theme_bw()
+```
