@@ -1,5 +1,5 @@
 ---
-title: "胡伟老师的绘图尝试"
+title: "英语音节心理声学研究热点图程序"
 author: "夏骁凯"
 documentclass: ctexart
 output:
@@ -62,10 +62,8 @@ ggplot(mixtable, aes(x = x, y = y, fill = factor(fill))) + geom_tile() + scale_f
 library(stringr)
 
 #导入实验数据
-en_nv_path <- file.choose()
-en_ihiy_path <- file.choose()
-en_nv <- read.csv(en_nv_path, header = T)
-en_ihiy <- read.csv(en_ihiy_path, header = T)
+en_nv <- read.csv(file.choose(), header = T)
+en_ihiy <- read.csv(file.choose(), header = T)
 
 #对数据进行初步筛选与整理
 en_nv <- select(en_nv, answer1.Block., sound111, sound112)
@@ -89,6 +87,11 @@ en_ihiy <- na.omit(en_ihiy)
 en_nv$sound <- str_extract(en_nv$sound, pattern = "(w|h).*d")
 en_nv <- mutate(en_nv, match = sound == answer)
 table(en_nv$match, en_nv$sound)
+
+#复杂频数表
+# ftable实现
+ftable(en_nv, row.vars = c(1,3), col.vars = 2)
+
 
 #将实验2的文件路径改为定位坐标
 en_ihiy$sound <- str_extract(en_ihiy$sound, pattern = "F1_..-F2_..")
@@ -179,9 +182,21 @@ for(i in 1 : nrow(data_en_ihiy)){
 
 names(color_map) <- as.character(1:nrow(data_en_ihiy))
 
+#构造填字内容列
+temp_table <- select(data_en_ihiy, heed, hid)
+temp_table[is.na(temp_table)] <- 0
+data_en_ihiy[,3:4] <- temp_table
+data_en_ihiy <- mutate(data_en_ihiy, judge = max(heed-hid)
+text_map <- vector()
+for(i in 1:nrow(data_en_ihiy)){
+  if(data_en_ihiy$judge[i] > 0){
+    text_map
+  } 
+}
+
 position <- c(1:nrow(data_en_ihiy))
 data_en_ihiy <- cbind(data_en_ihiy, position)
 
-ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw()
+ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + geom_text()
 ```
 

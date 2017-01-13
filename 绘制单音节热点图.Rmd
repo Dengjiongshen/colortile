@@ -1,25 +1,26 @@
 ---
-title: "绘制单音节热点图"
-author: "夏骁凯"
+title: "缁樺埗鍗曢煶鑺傜儹鐐瑰浘"
+author: "澶忛獊鍑?"
 date: "2017/1/5"
 output: html_document
 ---
-代码如下：
+浠ｇ爜濡備笅锛?
 ```{r}
 library(tidyverse)
-ch_ihiy_path <- file.choose()
-ch_ihiy <- read.csv(file = ch_ihiy_path)
-ch_ihiy <- select(ch_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
-names(ch_ihiy)[1] <- "answer"
-names(ch_ihiy)[2] <- "rate"
-ch_ihiy <- unite(ch_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
-ch_ihiy <- na.omit(ch_ihiy)
-ch_ihiy$sound <- str_extract(ch_ihiy$sound, pattern = "F1_..-F2_..")
-ch_ihiy <- separate(ch_ihiy, col = sound, into = c("X","Y"), sep = "-")
-ch_ihiy$X <- as.numeric(str_replace(ch_ihiy$X, pattern = "F1_", replacement = ""))
-ch_ihiy$Y <- as.numeric(str_replace(ch_ihiy$Y, pattern = "F2_", replacement = ""))
+library(stringr)
+cn_ihiy_path <- file.choose()
+cn_ihiy <- read.csv(file = cn_ihiy_path)
+cn_ihiy <- select(cn_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
+names(cn_ihiy)[1] <- "answer"
+names(cn_ihiy)[2] <- "rate"
+cn_ihiy <- unite(cn_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
+cn_ihiy <- na.omit(cn_ihiy)
+cn_ihiy$sound <- str_extract(cn_ihiy$sound, pattern = "F1_..-F2_..")
+cn_ihiy <- separate(cn_ihiy, col = sound, into = c("X","Y"), sep = "-")
+cn_ihiy$X <- as.numeric(str_replace(cn_ihiy$X, pattern = "F1_", replacement = ""))
+cn_ihiy$Y <- as.numeric(str_replace(cn_ihiy$Y, pattern = "F2_", replacement = ""))
 
-ch_ihiy_i <- filter(ch_ihiy, answer == "i")
-ch_ihiy_i <- reshape2::dcast(ch_ihiy_i[c(1,3,4)], X + Y ~ answer)
-ggplot(ch_ihiy_i, aes(x = X, y = Y, fill = i)) + geom_tile() + scale_fill_gradient2() + theme_bw()
+cn_ihiy_i <- filter(cn_ihiy, answer == "i")
+cn_ihiy_i <- reshape2::dcast(cn_ihiy_i[,c(1,3,4)], X + Y ~ answer)
+ggplot(cn_ihiy_i, aes(x = X, y = Y, fill = factor(i))) + geom_tile() + theme_bw()
 ```
