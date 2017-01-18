@@ -73,6 +73,8 @@ names(en_nv)[1] <- "answer"
 names(en_ihiy)[1] <- "answer"
 names(en_ihiy)[2] <- "rate"
 
+en_ihiy$rate <- stringr::str_sub(en_ihiy$rate, start = 2, end = -1)
+
 #制作实验1的表格
 en_nv <- unite(en_nv, sound, sound111, sound112)
 en_ihiy <- unite(en_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
@@ -182,21 +184,48 @@ for(i in 1 : nrow(data_en_ihiy)){
 
 names(color_map) <- as.character(1:nrow(data_en_ihiy))
 
-#构造填字内容列
-temp_table <- select(data_en_ihiy, heed, hid)
+#构造填字内容列（如果要改单词，需要把下面的三个*_table的赋值都进行修改）
+temp_table <- select(data_en_ihiy,heed, hid) #用于比较大小的表格
+cheak_table <- select(data_en_ihiy, X,Y, heed, hid) #用于选择相应比例值的表格
+rate_map <- vector()
+
 temp_table[is.na(temp_table)] <- 0
-data_en_ihiy[,3:4] <- temp_table
-data_en_ihiy <- mutate(data_en_ihiy, judge = max(heed-hid)
-text_map <- vector()
-for(i in 1:nrow(data_en_ihiy)){
-  if(data_en_ihiy$judge[i] > 0){
-    text_map
-  } 
+
+for(i in 1 : nrow(temp_table)){
+ char_num <- which(temp_table[i,] == max(temp_table[i,]))
+ 
+ x <- cheak_table[i, ]$X
+ y <- cheak_table[i, ]$Y
+ 
+ get_rate_table <- en_ihiy %>% 
+  filter(X == x, Y == y, answer == "heed"|answer=="hid") %>%  #记得这里也要修改
+  group_by(answer) %>%
+  summarise(mean(as.numeric(rate)))
+ judge_name <- names(temp_table)
+ 
+ if(length(char_num) != 1){
+  rate_map[i] <- max(get_rate_table$`mean(as.numeric(rate))`)
+}else{
+  get_rate <- get_rate_table %>% 
+   filter(answer == judge_name[char_num])
+  rate_map[i] <- get_rate[[2]]
+  }
 }
+
+data_en_ihiy <- cbind(data_en_ihiy, rate_map)
 
 position <- c(1:nrow(data_en_ihiy))
 data_en_ihiy <- cbind(data_en_ihiy, position)
 
-ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + geom_text()
+figure_without_text <- ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + coord_equal(ratio = 1)
+
+figure_with_text <- ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + geom_text(aes(label = rate_map)) + coord_equal(ratio = 1)
+
+ggsave("figure_with_text.pdf", plot = figure_with_text)
+ggsave("figure_without_text.pdf", plot = figure_without_text)
+
+ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + coord_equal(ratio = 1)
+
+ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + geom_text(aes(label = rate_map)) + coord_equal(ratio = 1)
 ```
 

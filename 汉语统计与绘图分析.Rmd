@@ -37,6 +37,8 @@ cn_nv <- na.omit(cn_nv)
 #对数据中的文件路径含义进行修改
 
 #将实验1的文件路径改为对应单词，并确认是否匹配
+cn_nv$answer[cn_nv$answer == "v"] <- "y"
+cn_ihiy$answer[cn_ihiy$answer == "v"] <- "y"
 cn_nv$sound <- str_sub(str_extract(cn_nv$sound, pattern = ".1"), start = 1, end = -2)
 cn_nv <- mutate(cn_nv, matcn = sound == answer)
 table(cn_nv$matcn, cn_nv$sound)
@@ -59,5 +61,5 @@ cn_ihiy$Y <- as.numeric(str_replace(cn_ihiy$Y, pattern = "F2_", replacement = ""
 
 cn_ihiy_i <- filter(cn_ihiy, answer == "i")
 cn_ihiy_i <- reshape2::dcast(cn_ihiy_i[,c(1,3,4)], X + Y ~ answer)
-ggplot(cn_ihiy_i, aes(x = X, y = Y, fill = i)) + geom_tile() + scale_fill_continuous() +theme_bw()
+ggplot(cn_ihiy_i, aes(x = X, y = Y, fill = i)) + geom_tile() + scale_fill_continuous() +theme_bw() + coord_equal(ratio=1)
 ```
