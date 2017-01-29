@@ -1,9 +1,13 @@
 ---
-title: "多个体数据平均程序"
+title: "多个体数据平均程序函数包"
 output: html_notebook
 ---
 编写处理工具函数
 ```{r}
+options(digits = 2)
+library(tidyverse)
+library(stringr)
+
 preProcess_nv <- function(filename){
   require(tidyverse)
   require(stringr)
@@ -35,9 +39,10 @@ preProcess_ihiy <- function(filename){
 }
 
 combine_nv <- function(all_filenames){
-
+  filelist <- list()
+  library(tidyverse)
   for(i in all_filenames){
-    filelist[which(all_filenames == i)] <- preProcess_nv(i)
+    filelist[which(all_filenames == i)] <- mean_single(preProcess_nv(i))
   }
 }
 
@@ -50,7 +55,7 @@ mean_single <- function(filename, words){
     filter(answer == words[1]|answer == words[2]|answer == words[3]|answer == words[4])
 
   result_mean_single <- c(0,0,0,0)
-  
+  result <- c(0,0,0,0)
   names(result) <- c("answer", "rate", "X", "Y")
   for(i in unique(mydata$X)){
     for(j in unique(mydata$Y)){
@@ -58,8 +63,8 @@ mean_single <- function(filename, words){
         filter(X == i, Y == j, rate > 0) %>% 
         group_by(answer) %>% 
         summarise(count = nrow(.),mean = mean(as.numeric(as.character(rate))))
+          result <- c(0,0,0,0)
       if(nrow(cheak_table) != 0){
-        result <- c(0,0,0,0)
         line_num <- which(cheak_table$count == max(cheak_table$count))
         if(length(line_num) == 1){
           result[1] <- as.character(unlist(cheak_table[line_num, 1]))
@@ -80,6 +85,7 @@ mean_single <- function(filename, words){
   }
   
   rownames(result_mean_single) <- NULL
+  colnames(result_mean_single) <- c("answer", "rate", "X", "Y")
   return(result_mean_single[-1,])
 }
 ```
@@ -87,6 +93,8 @@ mean_single <- function(filename, words){
 
 ```{r}
 filenames <- dir("sub-data/四个人的数据/", recursive = T)
+library(tidyverse)
+library(stringr)
 if(sum(str_detect(filenames, pattern = "ihiy.*csv")) > 0){
   combine_ihiy(filenames[str_detect(filenames, pattern = "ihiy.*csv")])
 }else{
