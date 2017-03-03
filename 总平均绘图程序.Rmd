@@ -1,0 +1,276 @@
+---
+title: "总平均绘图程序"
+output: html_notebook
+---
+
+1. 配置分析环境
+```{r}
+options(digits = 2)
+library(colorspace)
+library(tidyverse)
+library(stringr)
+
+preProcess_cn_nv <- function(filename){
+  require(tidyverse)
+  require(stringr)
+  cn_nv <- read.csv(filename, hearder = T)
+  cn_nv <- select(cn_nv, answer1.Block., sound111, sound112)
+  names(cn_nv)[1] <- "answer"
+  cn_nv <- unite(cn_nv, sound, sound111, sound112)
+  cn_nv <- na.omit(cn_nv)
+  cn_nv$sound <- str_extract(cn_nv$sound, pattern = "/[aeiuy]")
+  cn_nv$sound <- str_sub(cn_nv$sound, start = 2, end = -1)
+  cn_nv <- mutate(cn_nv, match = sound == answer)
+  cn_nv <- na.omit(cn_nv)
+  return(cn_nv)
+}
+
+preProcess_cn_ihiy <- function(filename){
+  cn_ihiy <- read.csv(filename, hearder = T)
+  cn_ihiy <- select(cn_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
+  names(cn_ihiy)[1] <- "answer"
+  names(cn_ihiy)[2] <- "rate"
+  cn_ihiy$rate <- stringr::str_sub(cn_ihiy$rate, start = 2, end = -1)
+  cn_ihiy <- unite(cn_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
+  cn_ihiy <- na.omit(cn_ihiy)
+  cn_ihiy$sound <- str_extract(cn_ihiy$sound, pattern = "F1_..-F2_..")
+  cn_ihiy <- separate(cn_ihiy, col = sound, into = c("X","Y"), sep = "-")
+  cn_ihiy$X <- as.numeric(str_replace(cn_ihiy$X, pattern = "F1_", replacement = ""))
+  cn_ihiy$Y <- as.numeric(str_replace(cn_ihiy$Y, pattern = "F2_", replacement = ""))
+  cn_ihiy <- na.omit(cn_ihiy)
+  return(cn_ihiy)
+}
+
+mixcolorhcl <- function(first, second) {
+  hex(mixcolor(alpha = 0.5, 
+               color1 = hex2RGB(first), color2 = hex2RGB(second)))
+}
+
+#建立整合色彩函数
+select_one_color <- function(x){
+  a <- select(x, ecolor, ucolor)
+  b <- a[which(is.na(a) == FALSE)]
+  return(color_total[[b[[1]]]])
+}
+
+mix_two_color <- function(x){
+  a <- select(x, ecolor, ucolor)
+  b <- a[which(is.na(a) == FALSE)]
+  c <- mixcolorhcl(color_total[[b[[1]]]], color_total[[b[[2]]]])
+  return(c)
+}
+```
+
+2. 绘制 heed hid 的热力图
+```{r}
+en_ihiy <- read.csv(file.choose())
+
+data_en_ihiy <- reshape2::dcast(en_ihiy, X + Y ~ answer)
+
+#选择出现频率最高的几个单词作为绘图依据
+data_en_ihiy <- select(data_en_ihiy, X, Y, heed, hid)
+data_en_ihiy[data_en_ihiy == 0] <- NA
+
+#构造色彩映射
+heed_color <- sequential_hcl(10, h = 60, c = c(100, 30), l = c(50, 90))
+names(heed_color) <- factor(str_c("heed",10:1))
+hid_color <- sequential_hcl(10, h = 240, c = c(100, 30), l = c(50, 90))
+names(hid_color) <- factor(str_c("hid",10:1))
+hood_color <- sequential_hcl(10, h = 190, c = c(100, 30), l = c(50, 90))
+names(hood_color) <- factor(str_c("hood",10:1))
+heard_color <- sequential_hcl(10, h = 280, c = c(100, 30), l = c(50, 90))
+names(heard_color) <- factor(str_c("heard",10:1))
+color_total <- c(heed_color, hid_color)
+
+#制作绘图参考值的表格
+data_en_ihiy <- mutate(data_en_ihiy, heedcolor = heed, hidcolor = hid)
+data_en_ihiy$heedcolor <- str_c("heed", data_en_ihiy$heedcolor)
+data_en_ihiy$hidcolor <- str_c("hid", data_en_ihiy$hidcolor)
+data_en_ihiy$hoodcolor <- str_c("hood", data_en_ihiy$hoodcolor)
+data_en_ihiy$heardcolor <- str_c("heard", data_en_ihiy$heardcolor)
+
+#统计是否需要颜色混合
+count <- vector()
+for(i in 1:nrow(data_en_ihiy)){
+  count[i] <- sum(is.na(data_en_ihiy[i,3:4]) == FALSE)
+}
+
+data_en_ihiy <- cbind(data_en_ihiy, count)
+
+
+#建立整合色彩函数
+select_one_color <- function(x){
+  a <- select(x, heedcolor, hidcolor)
+  b <- a[which(is.na(a) == FALSE)]
+  return(color_total[[b[[1]]]])
+}
+
+mix_two_color <- function(x){
+  a <- select(x, heedcolor, hidcolor)
+  b <- a[which(is.na(a) == FALSE)]
+  c <- mixcolorhcl(color_total[[b[[1]]]], color_total[[b[[2]]]])
+  return(c)
+}
+  
+#构建色彩映射向量  
+color_map <- vector()
+data_en_ihiy <- filter(data_en_ihiy, count > 0)
+for(i in 1 : nrow(data_en_ihiy)){
+  z <- data_en_ihiy[i,]
+  color_map[i] <- switch(z$count,
+    select_one_color(z),
+    mix_two_color(z)
+  )
+}
+
+names(color_map) <- as.character(1:nrow(data_en_ihiy))
+
+#构造填字内容列（如果要改单词，需要把下面的三个*_table的赋值都进行修改）
+temp_table <- select(data_en_ihiy,heed, hid) #用于比较大小的表格
+cheak_table <- select(data_en_ihiy, X,Y, heed, hid) #用于选择相应比例值的表格
+rate_map <- vector()
+
+temp_table[is.na(temp_table)] <- 0
+
+for(i in 1 : nrow(temp_table)){
+ char_num <- which(temp_table[i,] == max(temp_table[i,]))
+ 
+ x <- cheak_table[i, ]$X
+ y <- cheak_table[i, ]$Y
+ 
+ get_rate_table <- en_ihiy %>% 
+  filter(X == x, Y == y, answer == "heed"|answer=="hid") %>%  #记得这里也要修改
+  group_by(answer) %>%
+  summarise(mean(as.numeric(rate)))
+ judge_name <- names(temp_table)
+ 
+ if(length(char_num) != 1){
+  rate_map[i] <- max(get_rate_table$`mean(as.numeric(rate))`)
+}else{
+  get_rate <- get_rate_table %>% 
+   filter(answer == judge_name[char_num])
+  rate_map[i] <- get_rate[[2]]
+  }
+}
+
+rate_map <- as.character(round(rate_map,digits = 1))
+
+data_en_ihiy <- cbind(data_en_ihiy, rate_map)
+
+position <- c(1:nrow(data_en_ihiy))
+data_en_ihiy <- cbind(data_en_ihiy, position)
+
+figure_without_text <- ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + coord_equal(ratio = 1)
+
+figure_with_text <- ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + geom_text(aes(label = rate_map)) + coord_equal(ratio = 1)
+
+ggsave("figure_with_text.pdf", plot = figure_with_text, dpi = 300, width = 10)
+ggsave("figure_without_text.pdf", plot = figure_without_text, dpi = 300, width = 10)
+
+ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + coord_equal(ratio = 1)
+
+ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + geom_text(aes(label = rate_map)) + coord_equal(ratio = 1)
+```
+
+### 3. 绘制 hood heard 的热力图
+```{r}
+data_en_ihiy <- reshape2::dcast(en_ihiy, X + Y ~ answer)
+
+#选择出现频率最高的几个单词作为绘图依据
+data_en_ihiy <- select(data_en_ihiy, X, Y, hood, heard)
+data_en_ihiy[data_en_ihiy == 0] <- NA
+
+#构造色彩映射
+hood_color <- sequential_hcl(10, h = 190, c = c(100, 30), l = c(50, 90))
+names(hood_color) <- factor(str_c("hood",10:1))
+heard_color <- sequential_hcl(10, h = 280, c = c(100, 30), l = c(50, 90))
+names(heard_color) <- factor(str_c("heard",10:1))
+color_total <- c(hood_color, heard_color)
+
+#制作绘图参考值的表格
+data_en_ihiy <- mutate(data_en_ihiy, hoodcolor = hood, heardcolor = heard)
+data_en_ihiy$hoodcolor <- str_c("hood", data_en_ihiy$hoodcolor)
+data_en_ihiy$heardcolor <- str_c("heard", data_en_ihiy$heardcolor)
+
+#统计是否需要颜色混合
+count <- vector()
+for(i in 1:nrow(data_en_ihiy)){
+  count[i] <- sum(is.na(data_en_ihiy[i,3:4]) == FALSE)
+}
+
+data_en_ihiy <- cbind(data_en_ihiy, count)
+
+
+#建立整合色彩函数
+select_one_color <- function(x){
+  a <- select(x, hoodcolor, heardcolor)
+  b <- a[which(is.na(a) == FALSE)]
+  return(color_total[[b[[1]]]])
+}
+
+mix_two_color <- function(x){
+  a <- select(x, hoodcolor, heardcolor)
+  b <- a[which(is.na(a) == FALSE)]
+  c <- mixcolorhcl(color_total[[b[[1]]]], color_total[[b[[2]]]])
+  return(c)
+}
+
+#构建色彩映射向量  
+color_map <- vector()
+data_en_ihiy <- filter(data_en_ihiy, count > 0)
+for(i in 1 : nrow(data_en_ihiy)){
+  z <- data_en_ihiy[i,]
+  color_map[i] <- switch(z$count,
+    select_one_color(z),
+    mix_two_color(z)
+  )
+}
+
+names(color_map) <- as.character(1:nrow(data_en_ihiy))
+
+#构造填字内容列（如果要改单词，需要把下面的三个*_table的赋值都进行修改）
+temp_table <- select(data_en_ihiy,hood, heard) #用于比较大小的表格
+cheak_table <- select(data_en_ihiy, X,Y, hood, heard) #用于选择相应比例值的表格
+rate_map <- vector()
+
+temp_table[is.na(temp_table)] <- 0
+
+for(i in 1 : nrow(temp_table)){
+ char_num <- which(temp_table[i,] == max(temp_table[i,]))
+ 
+ x <- cheak_table[i, ]$X
+ y <- cheak_table[i, ]$Y
+ 
+ get_rate_table <- en_ihiy %>% 
+  filter(X == x, Y == y, answer == "hood"|answer=="heard") %>%  #记得这里也要修改
+  group_by(answer) %>%
+  summarise(mean(as.numeric(rate)))
+ judge_name <- names(temp_table)
+ 
+ if(length(char_num) != 1){
+  rate_map[i] <- max(get_rate_table$`mean(as.numeric(rate))`)
+}else{
+  get_rate <- get_rate_table %>% 
+   filter(answer == judge_name[char_num])
+  rate_map[i] <- get_rate[[2]]
+  }
+}
+
+rate_map <- as.character(round(rate_map,digits = 1))
+
+data_en_ihiy <- cbind(data_en_ihiy, rate_map)
+
+position <- c(1:nrow(data_en_ihiy))
+data_en_ihiy <- cbind(data_en_ihiy, position)
+
+figure_without_text <- ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + coord_equal(ratio = 1)
+
+#figure_with_text <- ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + geom_text(aes(label = rate_map)) + coord_equal(ratio = 1)
+
+#ggsave("hood_figure_with_text.png", plot = figure_with_text, dpi = 300, width = 10)
+ggsave("hood_figure_without_text.png", plot = figure_without_text, dpi = 300, width = 10)
+
+ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + coord_equal(ratio = 1)
+
+#ggplot(data_en_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + geom_text(aes(label = rate_map)) + coord_equal(ratio = 1)
+```

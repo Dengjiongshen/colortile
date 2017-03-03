@@ -1,0 +1,79 @@
+---
+title: "单个词汇绘图程序"
+output: html_notebook
+---
+
+## 1.编制函数
+```{r}
+single_plot <- function(word = NA, color_number = NA, language = NA) {
+  #构建分析环境
+  options(digits = 2)
+  require(colorspace)
+  require(extrafont)
+  require(tidyverse)
+  require(stringr)
+
+preProcess_ihiy <- function(filename){
+  en_ihiy <- read.csv(filename, header = T)
+  en_ihiy <- select(en_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
+  names(en_ihiy)[1] <- "answer"
+  names(en_ihiy)[2] <- "rate"
+  en_ihiy$rate <- stringr::str_sub(en_ihiy$rate, start = 2, end = -1)
+  en_ihiy <- unite(en_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
+  en_ihiy <- na.omit(en_ihiy)
+  en_ihiy$sound <- str_extract(en_ihiy$sound, pattern = "F1_..-F2_..")
+  en_ihiy <- separate(en_ihiy, col = sound, into = c("X","Y"), sep = "-")
+  en_ihiy$X <- as.numeric(str_replace(en_ihiy$X, pattern = "F1_", replacement = ""))
+  en_ihiy$Y <- as.numeric(str_replace(en_ihiy$Y, pattern = "F2_", replacement = ""))
+  en_ihiy <- na.omit(en_ihiy)
+  return(en_ihiy)
+}
+
+preProcess_cn_ihiy <- function(filename){
+  cn_ihiy <- read.csv(filename, header = T)
+  cn_ihiy <- select(cn_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
+  names(cn_ihiy)[1] <- "answer"
+  names(cn_ihiy)[2] <- "rate"
+  cn_ihiy$rate <- stringr::str_sub(cn_ihiy$rate, start = 2, end = -1)
+  cn_ihiy <- unite(cn_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
+  cn_ihiy <- na.omit(cn_ihiy)
+  cn_ihiy$sound <- str_extract(cn_ihiy$sound, pattern = "F1_..-F2_..")
+  cn_ihiy <- separate(cn_ihiy, col = sound, into = c("X","Y"), sep = "-")
+  cn_ihiy$X <- as.numeric(str_replace(cn_ihiy$X, pattern = "F1_", replacement = ""))
+  cn_ihiy$Y <- as.numeric(str_replace(cn_ihiy$Y, pattern = "F2_", replacement = ""))
+  cn_ihiy <- na.omit(cn_ihiy)
+  return(cn_ihiy)
+}
+
+#对数据进行预处理
+  filename = file.choose()
+  if(language == "en"){
+      clean_data <- preProcess_ihiy(filename)
+    }else{
+      clean_data <- preProcess_cn_ihiy(filename)
+    }
+
+#构建色彩向量
+  color_map <- sequential_hcl(10, h = color_number, c = c(100, 30), l = c(50, 90))
+  names(color_map) <- factor(10:1)
+
+#绘图
+  table_map <- clean_data %>% 
+    filter(answer == word) %>% 
+    reshape2::dcast(X + Y ~ answer)
+  names(table_map)[3] <- "answer"
+  p <- ggplot(table_map, aes(x = X, y = Y, fill = as.factor(answer))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw(base_size = 18) + coord_equal(ratio = 1) + xlim(0,16) + ylim(0,20)
+  print(p)
+  ggsave("D:/single_plot.jpg", plot = p, dpi = 300, width = 10)
+}
+```
+
+## 2.开始分析
+
+请在 word = 后输入 "要分析的词汇" , 请一定要加英文双引号！！！！！！
+在 color_number = 后输入颜色编号
+在 language = 后输入 "cn" 或 "en"，请一定要加英文双引号！！！！！！
+```{r}
+single_plot(word = "heed", color_number = 120, language = "cn")
+```
+

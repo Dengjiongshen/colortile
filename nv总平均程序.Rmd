@@ -1,0 +1,118 @@
+---
+title: "nv多个体数据平均程序"
+output: html_notebook
+---
+
+请将该程序放置在单独的文件夹下，并将要处理的nv数据放置进来。
+
+构建分析环境
+```{r enviorment}
+library(tidyverse)
+library(stringr)
+options(digits = 3)
+
+preProcess_nv <- function(filename){
+  require(tidyverse)
+  require(stringr)
+  en_nv <- read.csv(filename, header = T)
+  en_nv <- select(en_nv, answer1.Block., sound111, sound112)
+  names(en_nv)[1] <- "answer"
+  en_nv <- unite(en_nv, sound, sound111, sound112)
+  en_nv <- na.omit(en_nv)
+  en_nv$sound <- str_extract(en_nv$sound, pattern = "(w|h).*d")
+  en_nv <- mutate(en_nv, match = sound == answer)
+  en_nv <- na.omit(en_nv)
+  return(en_nv)
+}
+
+mean_single <- function(filename, words){
+  options(digits = 3)
+  library(tidyverse)
+  library(stringr)
+  mydata <- preProcess_nv(filename) %>% 
+    filter(answer == words[1]|answer == words[2]|answer == words[3]|answer == words[4])
+
+  result_mean_single <- c(0,0,0,0)
+  result <- c(0,0,0,0)
+  names(result) <- c("answer", "rate", "X", "Y")
+  for(i in unique(mydata$X)){
+    for(j in unique(mydata$Y)){
+      cheak_table <- mydata %>% 
+        filter(X == i, Y == j, rate > 0) %>% 
+        group_by(answer) %>% 
+        summarise(count = nrow(.),mean = mean(as.numeric(as.character(rate))))
+          result <- c(0,0,0,0)
+      if(nrow(cheak_table) != 0){
+        line_num <- which(cheak_table$count == max(cheak_table$count))
+        if(length(line_num) == 1){
+          result[1] <- as.character(unlist(cheak_table[line_num, 1]))
+          result[2] <- cheak_table[line_num, 3][[1]]
+          result[3] <- i
+          result[4] <- j
+          result_mean_single <- rbind(result_mean_single, result)
+        }else{
+          line_num <- which(cheak_table$mean == max(cheak_table$mean))
+          result[1] <- as.character(unlist(cheak_table[line_num, 1]))
+          result[2] <- cheak_table[line_num, 3][[1]]
+          result[3] <- i
+          result[4] <- j
+          result_mean_single <- rbind(result_mean_single, result)
+        }
+      }else{next()}
+    }
+  }
+  
+  rownames(result_mean_single) <- NULL
+  colnames(result_mean_single) <- c("answer", "rate", "X", "Y")
+  result <- as.data.frame(result_mean_single[-1,])
+  result$rate <- as.numeric(as.character(result$rate))
+  return(result)
+}
+
+combine_all <- function(filenames = NA, words){
+  if(is.na(filenames)){
+    filenames <- dir()[stringr::str_detect(dir(), pattern = "nv")]
+    filenames <- filenames[stringr::str_detect(filenames, pattern = "csv")]
+    }
+  a <- mean_single(filenames[1], words = words)
+  for(i in filenames[-1]){
+    b <- mean_single(i, words)
+    a <- full_join(a,b, by = c("X","Y"))
+  }
+  
+  answer_table <- select(a, contains("answer"))
+  loc_table <- select(a, X,Y)
+  selected_word <- apply(answer_table, 1, select_max_word)
+  
+  rate_table <- select(a, contains("rate"))
+  rated_num <- vector()
+  
+  for(i in 1:length(selected_word)){
+    word_loc <- which(answer_table[i,] == selected_word[i])
+    rated_num[i] <- mean(as.numeric(rate_table[i,word_loc]))
+  }
+  
+  mean_result <- data.frame(answer = selected_word, rate = rated_num)
+  result <- cbind(loc_table, mean_result)
+  return(result)
+}
+
+select_max_word <- function(vector) {
+  sort_table <- sort(table(vector), decreasing = T)
+  max_word <- names(sort_table[1])
+}
+```
+
+##开始转换
+
+请在下方的“words = c()”的括号中输入要分析的单词，并用英文引号包含，如“words = c("heed", "hid")”
+
+结果保存在当前文件夹下，文件名为mean_result.csv
+```{r}
+words = c("heed", "hid")
+
+result<- combine_all(words = words)
+result
+
+write.csv(result, file = "mean_result.csv")
+```

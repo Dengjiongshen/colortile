@@ -1,0 +1,194 @@
+---
+title: "中文热点图程序"
+output: html_notebook
+---
+
+1. 配置分析环境
+```{r}
+options(digits = 2)
+library(colorspace)
+library(tidyverse)
+library(stringr)
+
+preProcess_cn_nv <- function(filename){
+  require(tidyverse)
+  require(stringr)
+  cn_nv <- read.csv(filename, header = T)
+  cn_nv <- select(cn_nv, answer1.Block., sound111, sound112)
+  names(cn_nv)[1] <- "answer"
+  cn_nv <- unite(cn_nv, sound, sound111, sound112)
+  cn_nv <- na.omit(cn_nv)
+  cn_nv$sound <- str_extract(cn_nv$sound, pattern = "/[aeiuy]")
+  cn_nv$sound <- str_sub(cn_nv$sound, start = 2, end = -1)
+  cn_nv <- mutate(cn_nv, match = sound == answer)
+  cn_nv <- na.omit(cn_nv)
+  cn_nv[cn_nv == ""] <- NA
+  return(cn_nv)
+}
+
+preProcess_cn_ihiy <- function(filename){
+  cn_ihiy <- read.csv(filename, header = T)
+  cn_ihiy <- select(cn_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
+  names(cn_ihiy)[1] <- "answer"
+  names(cn_ihiy)[2] <- "rate"
+  cn_ihiy$rate <- stringr::str_sub(cn_ihiy$rate, start = 2, end = -1)
+  cn_ihiy <- unite(cn_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
+  cn_ihiy <- na.omit(cn_ihiy)
+  cn_ihiy$sound <- str_extract(cn_ihiy$sound, pattern = "F1_..-F2_..")
+  cn_ihiy <- separate(cn_ihiy, col = sound, into = c("X","Y"), sep = "-")
+  cn_ihiy$X <- as.numeric(str_replace(cn_ihiy$X, pattern = "F1_", replacement = ""))
+  cn_ihiy$Y <- as.numeric(str_replace(cn_ihiy$Y, pattern = "F2_", replacement = ""))
+  cn_ihiy <- na.omit(cn_ihiy)
+  cn_ihiy[cn_ihiy == ""] <- NA
+  return(cn_ihiy)
+}
+
+mixcolorhcl <- function(first, second) {
+  hex(mixcolor(alpha = 0.5, 
+               color1 = hex2RGB(first), color2 = hex2RGB(second)))
+}
+
+#建立整合色彩函数
+select_one_color <- function(x){
+  a <- select(x, ecolor, ucolor)
+  b <- a[which(is.na(a) == FALSE)]
+  return(color_total[[b[[1]]]])
+}
+
+mix_two_color <- function(x){
+  a <- select(x, ecolor, ucolor)
+  b <- a[which(is.na(a) == FALSE)]
+  c <- mixcolorhcl(color_total[[b[[1]]]], color_total[[b[[2]]]])
+  return(c)
+}
+
+mix_three_color <- function(x){
+  a <- select(x, ecolor, ucolor)
+  b <- a[which(is.na(a) == FALSE)]
+  c <- mixcolorhcl(color_total[[b[[1]]]], color_total[[b[[2]]]])
+  d <- mixcolorhcl(c, color_total[[b[[3]]]])
+  return(d)
+}
+
+mix_four_color <- function(x){
+  a <- select(x, heedcolor, hidcolor, hoodcolor, headcolor)
+  b <- a[which(is.na(a) == FALSE)]
+  c <- mixcolorhcl(color_total[[b[[1]]]], color_total[[b[[2]]]])
+  d <- mixcolorhcl(color_total[[b[[4]]]], color_total[[b[[3]]]])
+  e <- mixcolorhcl(c,d)
+  return(e)
+}
+```
+
+2. 对数据进行预处理
+```{r}
+nv <- preProcess_cn_nv(file.choose())
+ihiy <- preProcess_cn_ihiy(file.choose())
+```
+
+3. 制表
+```{r}
+print("表格1")
+table(nv$match, nv$sound)
+cat("\n")
+print("表格2")
+ftable(nv, row.vars = c(1,3), col.vars = 2)
+cat("\n")
+print("表格3")
+summary(ihiy$answer)
+```
+
+4. 绘图
+```{r}
+data_ihiy <- reshape2::dcast(ihiy, X + Y ~ answer)
+
+#选择出现频率最高的几个单词作为绘图依据
+i_ihiy <- select(data_ihiy, X, Y, i)
+eu_ihiy <- select(data_ihiy, X, Y, e, u)
+i_ihiy[i_ihiy == 0] <- NA
+eu_ihiy[eu_ihiy == 0] <- NA
+
+#构造色彩映射
+e_color <- sequential_hcl(10, h = 50, c = c(100, 30), l = c(50, 90))
+names(e_color) <- factor(str_c("e",10:1))
+u_color <- sequential_hcl(10, h = 170, c = c(100, 30), l = c(50, 90))
+names(u_color) <- factor(str_c("u",10:1))
+i_color <- sequential_hcl(10, h = 310, c = c(100, 30), l = c(50, 90))
+names(i_color) <- 10:1
+color_total <- c(e_color, u_color)
+```
+
+绘制e、u图
+```{r}
+#制作绘图参考值的表格
+eu_ihiy <- mutate(eu_ihiy, ecolor = e, ucolor = u)
+eu_ihiy$ecolor <- str_c("e", eu_ihiy$e)
+eu_ihiy$ucolor <- str_c("u", eu_ihiy$u)
+
+#绘制图例的表格
+color_legend_e <- data.frame(color = c(unlist(e_color)), num = 10:1)
+color_legend_u <- data.frame(color = c(unlist(u_color)), num = 10:1)
+e_color_legend <- e_color
+u_color_legend <- u_color
+names(e_color_legend) <- 10:1
+names(u_color_legend) <- 10:1
+
+#统计是否需要颜色混合
+count <- vector()
+for(i in 1:nrow(eu_ihiy)){
+  count[i] <- sum(is.na(eu_ihiy[i,3:4]) == FALSE)
+}
+
+eu_ihiy <- cbind(eu_ihiy, count)
+  
+#构建色彩映射向量  
+color_map <- vector()
+eu_ihiy <- filter(eu_ihiy, count > 0)
+for(i in 1 : nrow(eu_ihiy)){
+  z <- eu_ihiy[i,]
+  color_map[i] <- switch(z$count,
+    select_one_color(z),
+    mix_two_color(z)
+  )
+}
+
+names(color_map) <- as.character(1:nrow(eu_ihiy))
+
+position <- c(1:nrow(eu_ihiy))
+eu_ihiy <- cbind(eu_ihiy, position)
+
+eu_plot <- ggplot(eu_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + coord_equal(ratio = 1)
+
+ggsave("D:/eu_plot.jpg", plot = eu_plot, dpi = 300, width = 20)
+
+ggplot(eu_ihiy, aes(x = X, y = Y, fill = as.factor(position))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw() + coord_equal(ratio = 1)
+
+ggplot(color_legend_e, aes(x = num, y = 1, fill = factor(num))) + geom_tile(show.legend = T) + scale_fill_manual(values = e_color_legend)
+ggplot(color_legend_u, aes(x = num, y = 1, fill = factor(num))) + geom_tile(show.legend = T) + scale_fill_manual(values = u_color_legend)
+```
+
+绘制 i 图
+```{r}
+i_ihiy <- na.omit(i_ihiy)
+mean_rate <- vector()
+for(i in 1 : nrow(i_ihiy)){
+  x = i_ihiy$X[i]
+  y = i_ihiy$Y[i]
+  mean_rate[i] <- ihiy %>% 
+    filter(X == x, Y == y) %>% 
+    na.omit() %>% 
+    select(rate) %>% 
+    summarise(mean = mean(as.numeric(as.character(rate)))) %>% 
+    unlist()
+}
+mean_rate <- round(mean_rate, digits = 1)
+i_ihiy <- cbind(i_ihiy, mean_rate)
+i_plot_text <- ggplot(i_ihiy, aes(x = X, y = Y, fill = as.factor(i))) + geom_tile(show.legend = F) + geom_text(aes(label = mean_rate),size = 2, show.legend = F) + theme_bw() + coord_equal(ratio = 1) + scale_fill_manual(values = i_color)
+i_plot_notext <- ggplot(i_ihiy, aes(x = X, y = Y, fill = as.factor(i))) + geom_tile(show.legend = F) + theme_bw() + coord_equal(ratio = 1) + scale_fill_manual(values = i_color)
+ggsave("D:/i_plot_text.jpg", plot = i_plot_text, dpi = 300, width = 20, height = 20)
+ggsave("D:/i_plot_notext.jpg", plot = i_plot_notext, dpi = 300, width = 20, height = 20)
+
+ggplot(i_ihiy, aes(x = X, y = Y, fill = as.factor(i))) + geom_tile(show.legend = F) + geom_text(aes(label = mean_rate), show.legend = F, size = 9) + theme_bw() + coord_equal(ratio = 1) + scale_fill_manual(values = i_color)
+ggplot(i_ihiy, aes(x = X, y = Y, fill = as.factor(i))) + geom_tile(show.legend = F) + theme_bw() + coord_equal(ratio = 1) + scale_fill_manual(values = i_color)
+```
+
