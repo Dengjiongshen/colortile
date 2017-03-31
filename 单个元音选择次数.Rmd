@@ -1,0 +1,98 @@
+---
+title: "单个元音选择次数"
+output: html_notebook
+---
+
+1. 配置分析环境
+```{r}
+options(digits = 0)
+library(colorspace)
+library(tidyverse)
+library(stringr)
+
+preProcess_cn_ihiy <- function(filename){
+  cn_ihiy <- read.csv(filename, header = T)
+  cn_ihiy <- select(cn_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
+  names(cn_ihiy)[1] <- "answer"
+  names(cn_ihiy)[2] <- "rate"
+  cn_ihiy$rate <- stringr::str_sub(cn_ihiy$rate, start = 2, end = -1)
+  cn_ihiy <- unite(cn_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
+  cn_ihiy <- na.omit(cn_ihiy)
+  cn_ihiy$sound <- str_extract(cn_ihiy$sound, pattern = "F1_..-F2_..")
+  cn_ihiy <- separate(cn_ihiy, col = sound, into = c("X","Y"), sep = "-")
+  cn_ihiy$X <- as.numeric(str_replace(cn_ihiy$X, pattern = "F1_", replacement = ""))
+  cn_ihiy$Y <- as.numeric(str_replace(cn_ihiy$Y, pattern = "F2_", replacement = ""))
+  cn_ihiy <- na.omit(cn_ihiy)
+  cn_ihiy[cn_ihiy == ""] <- NA
+  return(cn_ihiy)
+}
+
+preProcess_ihiy <- function(filename){
+  en_ihiy <- read.csv(filename, header = T)
+  en_ihiy <- select(en_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
+  names(en_ihiy)[1] <- "answer"
+  names(en_ihiy)[2] <- "rate"
+  en_ihiy$rate <- stringr::str_sub(en_ihiy$rate, start = 2, end = -1)
+  en_ihiy <- unite(en_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
+  en_ihiy <- na.omit(en_ihiy)
+  en_ihiy$sound <- str_extract(en_ihiy$sound, pattern = "F1_..-F2_..")
+  en_ihiy <- separate(en_ihiy, col = sound, into = c("X","Y"), sep = "-")
+  en_ihiy$X <- as.numeric(str_replace(en_ihiy$X, pattern = "F1_", replacement = ""))
+  en_ihiy$Y <- as.numeric(str_replace(en_ihiy$Y, pattern = "F2_", replacement = ""))
+  en_ihiy <- na.omit(en_ihiy)
+  return(en_ihiy)
+}
+```
+
+2. 读取数据并分析
+
+选择处理的音节是中文还是英文
+```{r}
+#输入要分析的音节是中文还是英文
+file_type <- "EN"
+if(file_type == "EN"){
+  mydata_raw <- preProcess_ihiy(file.choose())
+}else{
+  mydata_raw <- preProcess_cn_ihiy(file.choose())
+}
+```
+
+选择要处理的词汇
+**请注意除了修改第63行，还需要修改67、68行中的词汇***
+```{r}
+need_analysis <- "heed"
+mydata <- mydata_raw %>% 
+  filter(answer == need_analysis) 
+mydata$rate[mydata$rate == 0] <- NA
+mydata <- na.omit(mydata)
+mydata <- reshape2::dcast(mydata, X + Y ~ answer + rate)
+
+mydata_rate <- select(mydata, contains("heed"))
+mydata_name <- select(mydata, contains("heed")) %>% 
+  names()
+rating_value <- unlist(stringr::str_split(mydata_name, pattern = "_"))
+rating_value <- as.numeric(rating_value[str_detect(rating_value, pattern = "[12345]")])
+  
+mean_rate <- vector()
+for(i in 1 : nrow(mydata_rate)){
+  mean_rate[i] <- sum(mydata_rate[i,]) * mean(rating_value[mydata_rate[i,] != 0])
+}
+
+mean_rate <- round(mean_rate, digits = 0)
+mydata <- cbind(mydata, mean_rate)
+mydata <- na.omit(mydata)
+
+#标记选择次数最多的坐标
+mydata %>% 
+  filter(mean_rate == max(mean_rate)) -> max_co
+max_co
+
+#绘图
+ggplot(mydata, aes(x = X, y = Y)) + geom_tile(colour = "grey50",fill = "white") + geom_text(aes(label = mean_rate), size = 10) + geom_tile(aes(x = max_co$X, y = max_co$Y), fill = "blue")+ theme_bw() + coord_equal(ratio = 1) + xlim(0,16) + ylim(0,20) + theme(panel.grid = element_blank())
+
+print(p)
+
+ggsave("D:/ picture.png", p, dpi = 300, width = 10)
+```
+
+

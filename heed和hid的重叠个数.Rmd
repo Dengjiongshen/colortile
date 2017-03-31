@@ -1,0 +1,60 @@
+---
+title: "heed和hid的重叠个数"
+output: html_notebook
+---
+
+1. 配置分析环境
+```{r}
+options(digits = 0)
+library(colorspace)
+library(tidyverse)
+library(stringr)
+
+preProcess_cn_ihiy <- function(filename){
+  cn_ihiy <- read.csv(filename, header = T)
+  cn_ihiy <- select(cn_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
+  names(cn_ihiy)[1] <- "answer"
+  names(cn_ihiy)[2] <- "rate"
+  cn_ihiy$rate <- stringr::str_sub(cn_ihiy$rate, start = 2, end = -1)
+  cn_ihiy <- unite(cn_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
+  cn_ihiy <- na.omit(cn_ihiy)
+  cn_ihiy$sound <- str_extract(cn_ihiy$sound, pattern = "F1_..-F2_..")
+  cn_ihiy <- separate(cn_ihiy, col = sound, into = c("X","Y"), sep = "-")
+  cn_ihiy$X <- as.numeric(str_replace(cn_ihiy$X, pattern = "F1_", replacement = ""))
+  cn_ihiy$Y <- as.numeric(str_replace(cn_ihiy$Y, pattern = "F2_", replacement = ""))
+  cn_ihiy <- na.omit(cn_ihiy)
+  cn_ihiy[cn_ihiy == ""] <- NA
+  return(cn_ihiy)
+}
+
+preProcess_ihiy <- function(filename){
+  en_ihiy <- read.csv(filename, header = T)
+  en_ihiy <- select(en_ihiy,answer1.SubTrial.,answer2.SubTrial.,starts_with("sound"))
+  names(en_ihiy)[1] <- "answer"
+  names(en_ihiy)[2] <- "rate"
+  en_ihiy$rate <- stringr::str_sub(en_ihiy$rate, start = 2, end = -1)
+  en_ihiy <- unite(en_ihiy, col = sound, sound111, sound112, sound113, sound114, sound115, sound121, sound122, sound123, sound124, sound125)
+  en_ihiy <- na.omit(en_ihiy)
+  en_ihiy$sound <- str_extract(en_ihiy$sound, pattern = "F1_..-F2_..")
+  en_ihiy <- separate(en_ihiy, col = sound, into = c("X","Y"), sep = "-")
+  en_ihiy$X <- as.numeric(str_replace(en_ihiy$X, pattern = "F1_", replacement = ""))
+  en_ihiy$Y <- as.numeric(str_replace(en_ihiy$Y, pattern = "F2_", replacement = ""))
+  en_ihiy <- na.omit(en_ihiy)
+  return(en_ihiy)
+}
+```
+
+2. 读取数据并分析
+
+选择处理的音节是中文还是英文
+```{r}
+mydata <- preProcess_ihiy(file.choose())
+
+mydata %>% 
+  filter(answer == "heed" | answer == "hid") %>% 
+  select(X,Y,answer) %>% 
+  reshape2::dcast(X + Y ~ answer) %>% 
+  mutate(value = heed + hid) %>% 
+  filter(value == 2) %>% 
+  summarise(count = n()) 
+```

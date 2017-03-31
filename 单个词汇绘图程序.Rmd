@@ -1,12 +1,12 @@
 ---
-title: "单个词汇绘图程序"
+title: "?????驶???图????"
 output: html_notebook
 ---
 
-## 1.编制函数
+## 1.???坪???
 ```{r}
 single_plot <- function(word = NA, color_number = NA, language = NA) {
-  #构建分析环境
+  #????????????
   options(digits = 2)
   require(colorspace)
   require(extrafont)
@@ -45,7 +45,7 @@ preProcess_cn_ihiy <- function(filename){
   return(cn_ihiy)
 }
 
-#对数据进行预处理
+#?????萁???预????
   filename = file.choose()
   if(language == "en"){
       clean_data <- preProcess_ihiy(filename)
@@ -53,27 +53,27 @@ preProcess_cn_ihiy <- function(filename){
       clean_data <- preProcess_cn_ihiy(filename)
     }
 
-#构建色彩向量
+#????色????锟斤拷
   color_map <- sequential_hcl(10, h = color_number, c = c(100, 30), l = c(50, 90))
   names(color_map) <- factor(10:1)
 
-#绘图
+#??图
   table_map <- clean_data %>% 
     filter(answer == word) %>% 
     reshape2::dcast(X + Y ~ answer)
   names(table_map)[3] <- "answer"
-  p <- ggplot(table_map, aes(x = X, y = Y, fill = as.factor(answer))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw(base_size = 18) + coord_equal(ratio = 1) + xlim(0,16) + ylim(0,20)
+  p <- ggplot(table_map, aes(x = X, y = Y, fill = as.factor(answer))) + geom_tile(show.legend = F) + scale_fill_manual(values = color_map) + theme_bw(base_size = 18) + coord_equal(ratio = 1) + xlim(0,16) + ylim(0,20) + theme(panel.grid = element_blank())
   print(p)
   ggsave("D:/single_plot.jpg", plot = p, dpi = 300, width = 10)
 }
 ```
 
-## 2.开始分析
+## 2.??始????
 
-请在 word = 后输入 "要分析的词汇" , 请一定要加英文双引号！！！！！！
-在 color_number = 后输入颜色编号
-在 language = 后输入 "cn" 或 "en"，请一定要加英文双引号！！！！！！
+???? word = ?????? "要?????拇驶?" , ??一??要??英??双???牛???????????
+?? color_number = ????????色????
+?? language = ?????? "cn" ?? "en"????一??要??英??双???牛???????????
 ```{r}
-single_plot(word = "heed", color_number = 120, language = "cn")
+single_plot(word = "heard", color_number = 120, language = "en")
 ```
 
