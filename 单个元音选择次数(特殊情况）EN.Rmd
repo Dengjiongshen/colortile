@@ -1,7 +1,8 @@
 ---
-title: "单个元音选择次数"
+title: "单个元音选择次数-特殊个体"
 output: html_notebook
 ---
+一些被试没有在格子里有重复选择，因此不适用原有程序
 
 1. 配置分析环境
 ```{r}
@@ -63,36 +64,22 @@ if(file_type == "EN"){
 need_analysis <- "hid"
 mydata <- mydata_raw %>% 
   filter(answer == need_analysis) 
-mydata$rate[mydata$rate == 0] <- NA
-mydata <- na.omit(mydata)
-mydata <- reshape2::dcast(mydata, X + Y ~ answer + rate)
-
-mydata_rate <- select(mydata, contains("hid"))
-mydata_name <- select(mydata, contains("hid")) %>% 
-  names()
-rating_value <- unlist(stringr::str_split(mydata_name, pattern = "_"))
-rating_value <- as.numeric(rating_value[str_detect(rating_value, pattern = "[12345]")])
-  
-mean_rate <- vector()
-for(i in 1 : nrow(mydata_rate)){
-  mean_rate[i] <- sum(mydata_rate[i,]) * mean(rating_value[mydata_rate[i,] != 0])
-}
-
-mean_rate <- round(mean_rate, digits = 0)
-mydata <- cbind(mydata, mean_rate)
+mydata$rate[!stringr::str_detect(mydata$rate, pattern = "[12345]")] <- NA
 mydata <- na.omit(mydata)
 
-#标记选择次数最多的坐标
 mydata %>% 
-  filter(mean_rate == max(mean_rate)) -> max_co
+  filter(rate == max(rate)) -> max_co
 max_co
+max_co <- cbind(max_co, 1)
+names(max_co)[names(max_co) == 1] <- "MAX"
+test <- left_join(mydata, max_co)
 
 #绘图
-ggplot(mydata, aes(x = X, y = Y)) + geom_tile(colour = "grey50",fill = "white") + geom_text(aes(label = mean_rate), size = 10) + geom_tile(aes(x = max_co$X, y = max_co$Y), fill = "blue")+ theme_bw() + coord_equal(ratio = 1) + xlim(0,16) + ylim(0,20) + theme(panel.grid = element_blank())
+p <- ggplot(test, aes(x = X, y = Y)) + geom_tile(colour = "grey50",fill = "white") + geom_tile(aes(fill = MAX)) + geom_text(aes(label = rate), size = 3) + theme_bw() + scale_fill_continuous(low = "#F8F8FF", high = "#FFFF00") + coord_equal(ratio = 1) + xlim(0,17) + ylim(0,20) + theme(panel.grid = element_blank())
 
 print(p)
 
-ggsave("D:/ picture.png", p, dpi = 300, width = 10)
+ggsave("D:/picture.png", p, dpi = 300, width = 10)
 ```
 
 
